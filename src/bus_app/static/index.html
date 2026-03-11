@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Muenster Bus Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <div class="brand-mark">TC</div>
+        <div>
+          <div class="brand-title">Transit Compass</div>
+          <div class="brand-subtitle">Muenster live board</div>
+        </div>
+      </div>
+
+      <p class="sidebar__intro">
+        Inbound departures, moving buses, and a real street map centered on the exact side of the stop you use.
+      </p>
+
+      <section class="sidebar-card">
+        <label class="field-label" for="searchInput">Stop search</label>
+        <input id="searchInput" class="field-input" type="text" placeholder="Twenteweg, stop code, or stop id">
+
+        <div id="stopResults" class="stop-results"></div>
+
+        <div class="selected-stop">
+          <div class="selected-stop__label">Selected</div>
+          <div id="selectedStopText" class="selected-stop__value">No stop selected</div>
+        </div>
+
+        <div class="field-grid">
+          <div>
+            <label class="field-label" for="linesInput">Tracked lines</label>
+            <input id="linesInput" class="field-input" type="text" placeholder="5,11,22">
+          </div>
+          <div>
+            <label class="field-label" for="refreshInput">Refresh</label>
+            <input id="refreshInput" class="field-input" type="number" min="5" step="1">
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <div>
+            <label class="field-label" for="lookaheadInput">Horizon (min)</label>
+            <input id="lookaheadInput" class="field-input" type="number" min="10" step="5">
+          </div>
+          <div>
+            <label class="field-label" for="maxDeparturesInput">Rows</label>
+            <input id="maxDeparturesInput" class="field-input" type="number" min="1" step="1">
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="refreshButton" class="button button--primary" type="button">Refresh</button>
+          <button id="saveButton" class="button button--ghost" type="button">Save Defaults</button>
+        </div>
+      </section>
+
+      <section class="sidebar-card sidebar-card--status">
+        <div class="status-head">Status</div>
+        <div id="statusText" class="status-text">Booting local app...</div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <section class="hero">
+        <div class="hero__copy">
+          <div class="hero__topbar">
+            <p class="eyebrow">Live local view</p>
+            <div class="time-panel">
+              <div class="time-panel__label">Now in Muenster</div>
+              <div id="currentTime" class="time-panel__value">--:--:--</div>
+              <div class="time-panel__meta-row">
+                <span id="currentDate" class="time-panel__meta">-- --- ----</span>
+                <span id="zoomLevel" class="zoom-pill">100%</span>
+              </div>
+              <div class="time-panel__hint">Ctrl + scroll to zoom the app</div>
+            </div>
+          </div>
+          <h1>Muenster Bus Board</h1>
+          <p id="heroSubtitle" class="hero__subtitle">
+            Desktop shell for departures, delays, and live vehicles around your stop.
+          </p>
+          <div id="linePills" class="line-pills"></div>
+        </div>
+
+        <div class="hero__stats">
+          <article class="stat-card">
+            <div class="stat-label">Stop</div>
+            <div id="heroStop" class="stat-value">Twenteweg</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Next bus</div>
+            <div id="nextDeparture" class="stat-value">-</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Live vehicles</div>
+            <div id="vehicleCount" class="stat-value">0</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-label">Updated</div>
+            <div id="lastUpdated" class="stat-value stat-value--small">never</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="layout-grid">
+        <article class="card map-card">
+          <div class="card-head card-head--map">
+            <div>
+              <h2>Street Map</h2>
+              <p>Hover a marker for current stop, direction, and delay context.</p>
+              <div id="mapCoverageNote" class="coverage-note"></div>
+            </div>
+            <div class="map-actions">
+              <button id="zoomOutButton" class="button button--map" type="button">-</button>
+              <button id="zoomInButton" class="button button--map" type="button">+</button>
+              <button id="centerMapButton" class="button button--map" type="button">Center</button>
+            </div>
+          </div>
+          <div id="map" class="map"></div>
+        </article>
+
+        <article class="card departures-card">
+          <div class="card-head">
+            <div>
+              <h2>Departures</h2>
+              <p>Live timetable for the selected platform.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table data-table--departures">
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>ETA</th>
+                  <th>Times</th>
+                  <th>Delay</th>
+                  <th>Destination</th>
+                </tr>
+              </thead>
+              <tbody id="departuresBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card vehicles-card">
+          <div class="card-head">
+            <div>
+              <h2>Vehicle Feed</h2>
+              <p>Buses currently on your tracked lines.</p>
+            </div>
+          </div>
+          <div class="table-wrap table-wrap--short">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>Vehicle</th>
+                  <th>Distance</th>
+                  <th>Delay</th>
+                  <th>Current</th>
+                  <th>Next</th>
+                  <th>Direction</th>
+                  <th>Coords</th>
+                </tr>
+              </thead>
+              <tbody id="vehiclesBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "stop_id": "4590102",
+  "stop_search": "Twen_",
+  "monitored_lines": [
+    "5",
+    "11",
+    "22"
+  ],
+  "refresh_seconds": 15,
+  "lookahead_seconds": 5400,
+  "max_departures": 20
+}
